@@ -14,7 +14,9 @@ export class Merchant extends Entity {
   public static readonly COLUMNS = {
     ID: 'id',
     NAME: 'name',
+    SLUG: 'slug',
     ADDRESS: 'address',
+    VISIBLE: 'visible',
     PICKUP_ENABLED: 'pickupEnabled',
     DELIVERY_ENABLED: 'deliveryEnabled',
     DELIVERY_COST: 'deliveryCost',
@@ -48,6 +50,17 @@ export class Merchant extends Entity {
   name: string;
 
   @property({
+    type: 'string',
+    required: true,
+    jsonSchema: {
+      maxLength: 100,
+      pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+      description: 'URL-friendly slug for the merchant'
+    },
+  })
+  slug: string;
+
+  @property({
     type: 'object',
     required: true,
     jsonSchema: {
@@ -55,6 +68,13 @@ export class Merchant extends Entity {
     },
   })
   address: object;
+
+  @property({
+    type: 'boolean',
+    required: true,
+    default: true,
+  })
+  visible: boolean;
 
   @property({
     type: 'boolean',

@@ -2,28 +2,29 @@ import {
   Count,
   CountSchema,
   Filter,
-  FilterExcludingWhere,
   repository,
-  Where,
+  Where
 } from '@loopback/repository';
 import {
-  post,
-  param,
+  del,
   get,
   getModelSchemaRef,
+  param,
   patch,
+  post,
   put,
-  del,
   requestBody,
-  response,
+  response
 } from '@loopback/rest';
 import {Merchant} from '../models';
+import {OpeningHour} from '../models/opening-hour.model';
+import {SpecialClosure} from '../models/special-closure.model';
 import {MerchantRepository} from '../repositories';
 
 export class MerchantController {
   constructor(
     @repository(MerchantRepository)
-    public merchantRepository : MerchantRepository,
+    public merchantRepository: MerchantRepository,
   ) {}
 
   @post('/merchants')
@@ -95,6 +96,7 @@ export class MerchantController {
     return this.merchantRepository.updateAll(merchant, where);
   }
 
+  /*
   @get('/merchants/{id}')
   @response(200, {
     description: 'Merchant model instance',
@@ -110,6 +112,7 @@ export class MerchantController {
   ): Promise<Merchant> {
     return this.merchantRepository.findById(id, filter);
   }
+  */
 
   @patch('/merchants/{id}')
   @response(204, {
@@ -146,5 +149,241 @@ export class MerchantController {
   })
   async deleteById(@param.path.number('id') id: number): Promise<void> {
     await this.merchantRepository.deleteById(id);
+  }
+
+  @get('/merchants/open', {
+    responses: {
+      '200': {
+        description: 'Array of open merchants',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: {type: 'string'},
+                  slug: {type: 'string'},
+                  pickupEnabled: {type: 'boolean'},
+                  deliveryEnabled: {type: 'boolean'},
+                  deliveryCost: {type: 'number'},
+                  minOrderAmount: {type: 'number'},
+                  estimatedDeliveryTime: {type: 'string'},
+                  coverImageUrl: {type: 'string'},
+                  logoUrl: {type: 'string'},
+                  openingHours: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        openTime: {type: 'string'},
+                        closeTime: {type: 'string'}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  async findOpenMerchants(
+    @param.query.string('day') day: string,
+  ): Promise<Merchant[]> {
+    if (!day) {
+      throw new Error('Day parameter is required');
+    }
+
+    // Validazione del formato della data
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(day)) {
+      throw new Error('Invalid date format. Use YYYY-MM-DD');
+    }
+
+    console.log(`[DEBUG] Ricerca merchant aperti per il giorno: ${day}`);
+
+    // Step 1: Trova i merchant con orari di apertura per il giorno specificato
+    const weekdayQuery = `
+      SELECT DISTINCT m.${Merchant.COLUMNS.ID}
+      FROM ${Merchant.TABLE_NAME} m
+      INNER JOIN ${OpeningHour.TABLE_NAME} oh ON oh.${OpeningHour.COLUMNS.MERCHANT_ID} = m.${Merchant.COLUMNS.ID}
+      WHERE oh.${OpeningHour.COLUMNS.WEEKDAY} = WEEKDAY(?)
+    `;
+
+    console.log('[DEBUG] Esecuzione query per trovare merchant con orari di apertura');
+    const merchantIds = await this.merchantRepository.dataSource.execute(weekdayQuery, [day]);
+    console.log(`[DEBUG] Trovati ${merchantIds.length} merchant con orari di apertura`);
+
+    if (merchantIds.length === 0) {
+      console.log('[DEBUG] Nessun merchant trovato con orari di apertura');
+      return [];
+    }
+
+    // Step 2: Verifica chiusure speciali
+    const closureQuery = `
+      SELECT DISTINCT sc.${SpecialClosure.COLUMNS.MERCHANT_ID}
+      FROM ${SpecialClosure.TABLE_NAME} sc
+      WHERE sc.${SpecialClosure.COLUMNS.DATE} = ?
+      AND sc.${SpecialClosure.COLUMNS.MERCHANT_ID} IN (${merchantIds.map((m: any) => m.id).join(',')})
+      AND sc.${SpecialClosure.COLUMNS.OPEN_TIME} IS NULL
+      AND sc.${SpecialClosure.COLUMNS.CLOSE_TIME} IS NULL
+    `;
+
+    console.log('[DEBUG] Verifica chiusure speciali');
+    const closedMerchantIds = await this.merchantRepository.dataSource.execute(closureQuery, [day]);
+    console.log(`[DEBUG] Trovati ${closedMerchantIds.length} merchant con chiusure speciali`);
+
+    // Step 3: Recupera i dati completi dei merchant aperti
+    const openMerchantIds = merchantIds
+      .filter((m: any) => !closedMerchantIds.some((cm: any) => cm.merchantId === m.id))
+      .map((m: any) => m.id);
+
+    if (openMerchantIds.length === 0) {
+      console.log('[DEBUG] Nessun merchant aperto dopo il controllo delle chiusure speciali');
+      return [];
+    }
+
+    console.log(`[DEBUG] Recupero dati completi per ${openMerchantIds.length} merchant aperti`);
+    const finalQuery = `
+      SELECT
+        m.${Merchant.COLUMNS.ID},
+        m.${Merchant.COLUMNS.NAME},
+        m.${Merchant.COLUMNS.SLUG},
+        m.${Merchant.COLUMNS.PICKUP_ENABLED},
+        m.${Merchant.COLUMNS.DELIVERY_ENABLED},
+        m.${Merchant.COLUMNS.DELIVERY_COST},
+        m.${Merchant.COLUMNS.MIN_ORDER_AMOUNT},
+        m.${Merchant.COLUMNS.ESTIMATED_DELIVERY_TIME},
+        m.${Merchant.COLUMNS.COVER_IMAGE_URL},
+        m.${Merchant.COLUMNS.LOGO_URL},
+        oh.${OpeningHour.COLUMNS.OPEN_TIME},
+        oh.${OpeningHour.COLUMNS.CLOSE_TIME}
+      FROM ${Merchant.TABLE_NAME} m
+      INNER JOIN ${OpeningHour.TABLE_NAME} oh ON oh.${OpeningHour.COLUMNS.MERCHANT_ID} = m.${Merchant.COLUMNS.ID}
+      WHERE m.${Merchant.COLUMNS.ID} IN (${openMerchantIds.join(',')})
+      AND oh.${OpeningHour.COLUMNS.WEEKDAY} = WEEKDAY(?)
+      AND m.${Merchant.COLUMNS.VISIBLE} = 1
+      ORDER BY m.${Merchant.COLUMNS.NAME}
+    `;
+
+    const result = await this.merchantRepository.dataSource.execute(finalQuery, [day]);
+    console.log(`[DEBUG] Recuperati ${result.length} record di orari di apertura`);
+
+    // Raggruppa gli orari di apertura per merchant
+    const merchantsMap = new Map();
+    result.forEach((row: any) => {
+      const merchantId = row[Merchant.COLUMNS.ID];
+      if (!merchantsMap.has(merchantId)) {
+        merchantsMap.set(merchantId, {
+          name: row[Merchant.COLUMNS.NAME],
+          slug: row[Merchant.COLUMNS.SLUG],
+          pickupEnabled: row[Merchant.COLUMNS.PICKUP_ENABLED],
+          deliveryEnabled: row[Merchant.COLUMNS.DELIVERY_ENABLED],
+          deliveryCost: row[Merchant.COLUMNS.DELIVERY_COST],
+          minOrderAmount: row[Merchant.COLUMNS.MIN_ORDER_AMOUNT],
+          estimatedDeliveryTime: row[Merchant.COLUMNS.ESTIMATED_DELIVERY_TIME],
+          coverImageUrl: row[Merchant.COLUMNS.COVER_IMAGE_URL],
+          logoUrl: row[Merchant.COLUMNS.LOGO_URL],
+          openingHours: []
+        });
+      }
+      merchantsMap.get(merchantId).openingHours.push({
+        openTime: row[OpeningHour.COLUMNS.OPEN_TIME],
+        closeTime: row[OpeningHour.COLUMNS.CLOSE_TIME]
+      });
+    });
+
+    const finalResult = Array.from(merchantsMap.values());
+    console.log(`[DEBUG] Restituiti ${finalResult.length} merchant con i loro orari di apertura`);
+
+    return finalResult;
+  }
+
+  @get('/merchants/{slug}', {
+    responses: {
+      '200': {
+        description: 'Merchant details',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              properties: {
+                name: {type: 'string'},
+                slug: {type: 'string'},
+                address: {type: 'object'},
+                pickupEnabled: {type: 'boolean'},
+                deliveryEnabled: {type: 'boolean'},
+                deliveryCost: {type: 'number'},
+                minOrderAmount: {type: 'number'},
+                estimatedDeliveryTime: {type: 'string'},
+                coverImageUrl: {type: 'string'},
+                logoUrl: {type: 'string'},
+                openingHours: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      openTime: {type: 'string'},
+                      closeTime: {type: 'string'}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  async findBySlug(
+    @param.path.string('slug') slug: string,
+  ): Promise<object> {
+    console.log(`[DEBUG] Ricerca merchant con slug: ${slug}`);
+
+    // Step 1: Trova il merchant con lo slug specificato
+    const merchantQuery = `
+      SELECT
+        m.${Merchant.COLUMNS.ID},
+        m.${Merchant.COLUMNS.NAME},
+        m.${Merchant.COLUMNS.SLUG},
+        m.${Merchant.COLUMNS.ADDRESS},
+        m.${Merchant.COLUMNS.PICKUP_ENABLED},
+        m.${Merchant.COLUMNS.DELIVERY_ENABLED},
+        m.${Merchant.COLUMNS.DELIVERY_COST},
+        m.${Merchant.COLUMNS.MIN_ORDER_AMOUNT},
+        m.${Merchant.COLUMNS.ESTIMATED_DELIVERY_TIME},
+        m.${Merchant.COLUMNS.COVER_IMAGE_URL},
+        m.${Merchant.COLUMNS.LOGO_URL}
+      FROM ${Merchant.TABLE_NAME} m
+      WHERE m.${Merchant.COLUMNS.SLUG} = ?
+      AND m.${Merchant.COLUMNS.VISIBLE} = 1
+    `;
+
+    const merchantResult = await this.merchantRepository.dataSource.execute(merchantQuery, [slug]);
+
+    if (merchantResult.length === 0) {
+      throw new Error('Merchant not found');
+    }
+
+    const merchant = merchantResult[0];
+    console.log(`[DEBUG] Trovato merchant: ${merchant[Merchant.COLUMNS.NAME]}`);
+
+    // Formatta il risultato
+    const result = {
+      name: merchant[Merchant.COLUMNS.NAME],
+      slug: merchant[Merchant.COLUMNS.SLUG],
+      address: merchant[Merchant.COLUMNS.ADDRESS],
+      pickupEnabled: merchant[Merchant.COLUMNS.PICKUP_ENABLED],
+      deliveryEnabled: merchant[Merchant.COLUMNS.DELIVERY_ENABLED],
+      deliveryCost: merchant[Merchant.COLUMNS.DELIVERY_COST],
+      minOrderAmount: merchant[Merchant.COLUMNS.MIN_ORDER_AMOUNT],
+      estimatedDeliveryTime: merchant[Merchant.COLUMNS.ESTIMATED_DELIVERY_TIME],
+      coverImageUrl: merchant[Merchant.COLUMNS.COVER_IMAGE_URL],
+      logoUrl: merchant[Merchant.COLUMNS.LOGO_URL],
+    };
+
+    return result;
   }
 }

@@ -4,3 +4,5 @@ export * from './user.controller';
 export * from './merchant.controller';
 export * from './opening-hour.controller';
 export * from './special-closure.controller';
+export * from './category.controller';
+export * from './category-item.controller';
