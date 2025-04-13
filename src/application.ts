@@ -1,16 +1,18 @@
+import {AuthenticationComponent, registerAuthenticationStrategy} from '@loopback/authentication';
 import {BootMixin} from '@loopback/boot';
 import {ApplicationConfig} from '@loopback/core';
+import {RepositoryMixin} from '@loopback/repository';
+import {RestApplication} from '@loopback/rest';
 import {
   RestExplorerBindings,
   RestExplorerComponent,
 } from '@loopback/rest-explorer';
-import * as dotenv from 'dotenv';
-import {RepositoryMixin} from '@loopback/repository';
-import {RestApplication} from '@loopback/rest';
 import {ServiceMixin} from '@loopback/service-proxy';
+import * as dotenv from 'dotenv';
 import path from 'path';
-import {MySequence} from './sequence';
+import {CognitoAuthenticationStrategy} from './authentication-strategies/cognito.strategy';
 import {MysqlDataSource} from './datasources/mysql.datasource';
+import {MySequence} from './sequence';
 
 export {ApplicationConfig};
 
@@ -23,8 +25,35 @@ export class BackendApplication extends BootMixin(
     // Load environment variables
     dotenv.config();
 
+    // Configure CORS
+    this.options.rest = {
+      ...this.options.rest,
+      cors: {
+        origin: 'http://localhost:5173',
+        methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
+        maxAge: 86400,
+        credentials: true,
+        allowedHeaders: ['Content-Type', 'Authorization'],
+      },
+      expressSettings: {
+        'x-powered-by': false,
+        'trust proxy': false,
+      },
+    };
+
+    // Configure Cognito
+    this.bind('cognito.region').to(process.env.COGNITO_REGION || '');
+    this.bind('cognito.userPoolId').to(process.env.COGNITO_USER_POOL_ID || '');
+    this.bind('cognito.appClientId').to(process.env.COGNITO_APP_CLIENT_ID || '');
+
     // Set up the custom sequence
     this.sequence(MySequence);
+
+    // Configure authentication
+    this.component(AuthenticationComponent);
+    registerAuthenticationStrategy(this, CognitoAuthenticationStrategy);
 
     // Set up default home page
     this.static('/', path.join(__dirname, '../public'));

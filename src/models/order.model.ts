@@ -78,7 +78,7 @@ export class Order extends Entity {
 
   @property({
     type: 'number',
-    required: true,
+    required: false,
     default: 0,
     jsonSchema: {
       type: 'number',
@@ -87,7 +87,7 @@ export class Order extends Entity {
       maximum: 9999.99,
     },
   })
-  deliveryCost: number;
+  deliveryCost?: number;
 
   @property({
     type: 'date',

@@ -1,3 +1,5 @@
+import {authenticate, AuthenticationBindings} from '@loopback/authentication';
+import {inject} from '@loopback/core';
 import {
   Count,
   CountSchema,
@@ -7,25 +9,39 @@ import {
   Where,
 } from '@loopback/repository';
 import {
-  post,
-  param,
+  del,
   get,
   getModelSchemaRef,
+  HttpErrors,
+  param,
   patch,
+  post,
   put,
-  del,
   requestBody,
   response,
 } from '@loopback/rest';
+import {UserProfile} from '@loopback/security';
 import {Order} from '../models';
 import {OrderRepository} from '../repositories';
+import {MerchantRepository} from '../repositories/merchant.repository';
+import {UserRepository} from '../repositories/user.repository';
+
+// Interfaccia per il payload della richiesta
+interface CreateOrderRequest extends Omit<Order, 'id' | 'userId' | 'merchantId'> {
+  merchantSlug: string;
+}
 
 export class OrderController {
   constructor(
     @repository(OrderRepository)
-    public orderRepository : OrderRepository,
+    public orderRepository: OrderRepository,
+    @repository(MerchantRepository)
+    public merchantRepository: MerchantRepository,
+    @repository(UserRepository)
+    public userRepository: UserRepository,
   ) {}
 
+  @authenticate('cognito')
   @post('/orders')
   @response(200, {
     description: 'Order model instance',
@@ -35,16 +51,95 @@ export class OrderController {
     @requestBody({
       content: {
         'application/json': {
-          schema: getModelSchemaRef(Order, {
-            title: 'NewOrder',
-            exclude: ['id'],
-          }),
+          schema: {
+            type: 'object',
+            required: ['merchantSlug', 'total', 'delivery', 'scheduledAt'],
+            properties: {
+              merchantSlug: {type: 'string'},
+              total: {type: 'number'},
+              delivery: {type: 'boolean'},
+              deliveryCost: {type: 'number'},
+              scheduledAt: {type: 'string', format: 'date-time'},
+              notes: {type: 'string'},
+              summary: {type: 'array', items: {type: 'object'}},
+              userInfo: {type: 'object'}
+            }
+          }
         },
       },
     })
-    order: Omit<Order, 'id'>,
+    orderRequest: CreateOrderRequest,
+    @inject(AuthenticationBindings.CURRENT_USER)
+    currentUser: UserProfile,
   ): Promise<Order> {
-    return this.orderRepository.create(order);
+    try {
+      console.log('[DEBUG] Inizio processo di creazione ordine');
+      console.log('[DEBUG] Dati ricevuti:', {
+        merchantSlug: orderRequest.merchantSlug,
+        total: orderRequest.total,
+        delivery: orderRequest.delivery,
+        scheduledAt: orderRequest.scheduledAt
+      });
+
+      // Estrai l'email dall'utente autenticato
+      const userEmail = currentUser.email;
+      console.log('[DEBUG] Email utente dal token:', userEmail);
+
+      if (!userEmail) {
+        console.error('[ERROR] Email utente non trovata nel token');
+        throw new HttpErrors.Unauthorized('User email not found in token');
+      }
+
+      // Trova l'utente per email
+      console.log('[DEBUG] Ricerca utente per email:', userEmail);
+      const user = await this.userRepository.findOne({
+        where: {email: userEmail}
+      });
+
+      if (!user) {
+        console.error('[ERROR] Utente non trovato per email:', userEmail);
+        throw new HttpErrors.NotFound('User not found');
+      }
+      console.log('[DEBUG] Utente trovato con ID:', user.id);
+
+      // Trova il merchant per slug
+      console.log('[DEBUG] Ricerca merchant per slug:', orderRequest.merchantSlug);
+      const merchant = await this.merchantRepository.findOne({
+        where: {slug: orderRequest.merchantSlug}
+      });
+
+      if (!merchant) {
+        console.error('[ERROR] Merchant non trovato per slug:', orderRequest.merchantSlug);
+        throw new HttpErrors.NotFound('Merchant not found');
+      }
+      console.log('[DEBUG] Merchant trovato con ID:', merchant.id);
+
+      // Crea l'ordine con gli ID risolti
+      const {merchantSlug, ...orderData} = orderRequest;
+      const order = {
+        ...orderData,
+        userId: user.id,
+        merchantId: merchant.id,
+      };
+      console.log('[DEBUG] Dati ordine preparati:', {
+        userId: order.userId,
+        merchantId: order.merchantId,
+        total: order.total,
+        delivery: order.delivery,
+        scheduledAt: order.scheduledAt
+      });
+
+      const createdOrder = await this.orderRepository.create(order);
+      console.log('[DEBUG] Ordine creato con successo. ID:', createdOrder.id);
+
+      return createdOrder;
+    } catch (error) {
+      console.error('[ERROR] Errore durante la creazione dell\'ordine:', error);
+      if (error instanceof HttpErrors.HttpError) {
+        throw error;
+      }
+      throw new HttpErrors.InternalServerError('Error creating order');
+    }
   }
 
   @get('/orders/count')

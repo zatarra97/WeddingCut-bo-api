@@ -153,7 +153,7 @@ export class MerchantController {
     await this.merchantRepository.deleteById(id);
   }
 
-  @get('/merchants/open', {
+  @get('/public/merchants/open', {
     responses: {
       '200': {
         description: 'Array of open merchants',
@@ -303,7 +303,7 @@ export class MerchantController {
     return finalResult;
   }
 
-  @get('/merchants/{slug}', {
+  @get('/public/merchants/{slug}', {
     responses: {
       '200': {
         description: 'Merchant details',
@@ -389,7 +389,7 @@ export class MerchantController {
     return result;
   }
 
-  @get('/merchants/{slug}/menu', {
+  @get('/public/merchants/{slug}/menu', {
     responses: {
       '200': {
         description: 'Menu del merchant organizzato per categorie',
