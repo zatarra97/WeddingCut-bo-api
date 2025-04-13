@@ -5,3 +5,5 @@ export * from './special-closure.repository';
 export * from './user.repository';
 export * from './category.repository';
 export * from './category-item.repository';
+export * from './order.repository';
+export * from './order-item.repository';

@@ -17,6 +17,8 @@ import {
   response
 } from '@loopback/rest';
 import {Merchant} from '../models';
+import {CategoryItem} from '../models/category-item.model';
+import {Category} from '../models/category.model';
 import {OpeningHour} from '../models/opening-hour.model';
 import {SpecialClosure} from '../models/special-closure.model';
 import {MerchantRepository} from '../repositories';
@@ -385,5 +387,114 @@ export class MerchantController {
     };
 
     return result;
+  }
+
+  @get('/merchants/{slug}/menu', {
+    responses: {
+      '200': {
+        description: 'Menu del merchant organizzato per categorie',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: {type: 'string'},
+                  items: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        name: {type: 'string'},
+                        description: {type: 'string'},
+                        price: {type: 'number'},
+                        imgUrl: {type: 'string'}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  async getMenu(
+    @param.path.string('slug') slug: string,
+  ): Promise<object[]> {
+    console.log(`[DEBUG] Ricerca menu per merchant con slug: ${slug}`);
+
+    // Step 1: Trova il merchant
+    const merchantQuery = `
+      SELECT ${Merchant.COLUMNS.ID}
+      FROM ${Merchant.TABLE_NAME}
+      WHERE ${Merchant.COLUMNS.SLUG} = ?
+      AND ${Merchant.COLUMNS.VISIBLE} = 1
+    `;
+
+    const merchantResult = await this.merchantRepository.dataSource.execute(merchantQuery, [slug]);
+
+    if (merchantResult.length === 0) {
+      throw new Error('Merchant not found');
+    }
+
+    const merchantId = merchantResult[0][Merchant.COLUMNS.ID];
+    console.log(`[DEBUG] Trovato merchant con ID: ${merchantId}`);
+
+    // Step 2: Recupera le categorie
+    const categoriesQuery = `
+      SELECT ${Category.COLUMNS.NAME}
+      FROM ${Category.TABLE_NAME}
+      WHERE ${Category.COLUMNS.MERCHANT_ID} = ?
+      AND ${Category.COLUMNS.VISIBILITY} = 1
+      ORDER BY \`${Category.COLUMNS.ORDER}\`, ${Category.COLUMNS.NAME}
+    `;
+
+    const categories = await this.merchantRepository.dataSource.execute(categoriesQuery, [merchantId]);
+    console.log(`[DEBUG] Trovate ${categories.length} categorie`);
+
+    // Step 3: Per ogni categoria, recupera gli items
+    const menu = await Promise.all(categories.map(async (category: any) => {
+      const itemsQuery = `
+        SELECT
+          ${CategoryItem.COLUMNS.ID},
+          ${CategoryItem.COLUMNS.NAME},
+          ${CategoryItem.COLUMNS.DESCRIPTION},
+          ${CategoryItem.COLUMNS.PRICE},
+          ${CategoryItem.COLUMNS.IMG_URL}
+        FROM ${CategoryItem.TABLE_NAME}
+        WHERE ${CategoryItem.COLUMNS.MERCHANT_ID} = ?
+        AND ${CategoryItem.COLUMNS.VISIBILITY} = 1
+        AND ${CategoryItem.COLUMNS.CATEGORY_ID} = (
+          SELECT ${Category.COLUMNS.ID}
+          FROM ${Category.TABLE_NAME}
+          WHERE ${Category.COLUMNS.MERCHANT_ID} = ?
+          AND ${Category.COLUMNS.NAME} = ?
+        )
+        ORDER BY \`${CategoryItem.COLUMNS.ORDER}\`, ${CategoryItem.COLUMNS.NAME}
+      `;
+
+      const items = await this.merchantRepository.dataSource.execute(itemsQuery, [
+        merchantId,
+        merchantId,
+        category[Category.COLUMNS.NAME]
+      ]);
+
+      return {
+        name: category[Category.COLUMNS.NAME],
+        items: items.map((item: any) => ({
+          id: item[CategoryItem.COLUMNS.ID],
+          name: item[CategoryItem.COLUMNS.NAME],
+          description: item[CategoryItem.COLUMNS.DESCRIPTION],
+          price: item[CategoryItem.COLUMNS.PRICE],
+          imgUrl: item[CategoryItem.COLUMNS.IMG_URL]
+        }))
+      };
+    }));
+
+    console.log(`[DEBUG] Menu completato con ${menu.length} categorie`);
+    return menu;
   }
 }

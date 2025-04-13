@@ -5,3 +5,5 @@ export * from './opening-hour.model';
 export * from './special-closure.model';
 export * from './category.model';
 export * from './category-item.model';
+export * from './order.model';
+export * from './order-item.model';

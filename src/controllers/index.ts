@@ -6,3 +6,5 @@ export * from './opening-hour.controller';
 export * from './special-closure.controller';
 export * from './category.controller';
 export * from './category-item.controller';
+export * from './order.controller';
+export * from './order-item.controller';

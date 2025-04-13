@@ -15,6 +15,8 @@ export class Category extends Entity {
     ID: 'id',
     MERCHANT_ID: 'merchantId',
     NAME: 'name',
+    VISIBILITY: 'visibility',
+    ORDER: 'order',
     CREATED_AT: 'createdAt',
     UPDATED_AT: 'updatedAt'
   };
@@ -42,6 +44,27 @@ export class Category extends Entity {
     },
   })
   name: string;
+
+  @property({
+    type: 'boolean',
+    required: true,
+    default: true,
+    jsonSchema: {
+      type: 'boolean',
+    },
+  })
+  visibility: boolean;
+
+  @property({
+    type: 'number',
+    required: true,
+    default: 0,
+    jsonSchema: {
+      type: 'number',
+      unsigned: true,
+    },
+  })
+  order: number;
 
   @property({
     type: 'date',

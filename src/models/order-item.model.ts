@@ -1,29 +1,29 @@
 import {belongsTo, Entity, model, property} from '@loopback/repository';
-import {Category} from './category.model';
+import {CategoryItem} from './category-item.model';
 import {Merchant} from './merchant.model';
+import {Order} from './order.model';
 
-export const CATEGORY_ITEM_TABLE_NAME = 'category_item';
+export const ORDER_ITEM_TABLE_NAME = 'order_item';
 
 @model({
-  name: CATEGORY_ITEM_TABLE_NAME
+  name: ORDER_ITEM_TABLE_NAME
 })
-export class CategoryItem extends Entity {
+export class OrderItem extends Entity {
   // Costante per il nome della tabella da usare per le query dirette nei controller
-  public static readonly TABLE_NAME: string = CATEGORY_ITEM_TABLE_NAME;
+  public static readonly TABLE_NAME: string = ORDER_ITEM_TABLE_NAME;
 
   // Definizione centralizzata dei nomi delle colonne
   public static readonly COLUMNS = {
     ID: 'id',
-    CATEGORY_ID: 'categoryId',
+    ORDER_ID: 'orderId',
+    CATEGORY_ITEM_ID: 'categoryItemId',
     MERCHANT_ID: 'merchantId',
     NAME: 'name',
     DESCRIPTION: 'description',
     PRICE: 'price',
-    IMG_URL: 'imgUrl',
-    VISIBILITY: 'visibility',
-    ORDER: 'order',
-    CREATED_AT: 'createdAt',
-    UPDATED_AT: 'updatedAt'
+    QUANTITY: 'quantity',
+    NOTES: 'notes',
+    CREATED_AT: 'createdAt'
   };
 
   @property({
@@ -37,8 +37,11 @@ export class CategoryItem extends Entity {
   })
   id: number;
 
-  @belongsTo(() => Category)
-  categoryId: number;
+  @belongsTo(() => Order)
+  orderId: number;
+
+  @belongsTo(() => CategoryItem)
+  categoryItemId?: number;
 
   @belongsTo(() => Merchant)
   merchantId: number;
@@ -75,35 +78,25 @@ export class CategoryItem extends Entity {
   price: number;
 
   @property({
+    type: 'number',
+    required: true,
+    default: 1,
+    jsonSchema: {
+      type: 'number',
+      unsigned: true,
+      minimum: 1,
+    },
+  })
+  quantity: number;
+
+  @property({
     type: 'string',
     required: false,
     jsonSchema: {
       type: 'string',
-      maxLength: 255,
     },
   })
-  imgUrl?: string;
-
-  @property({
-    type: 'boolean',
-    required: true,
-    default: true,
-    jsonSchema: {
-      type: 'boolean',
-    },
-  })
-  visibility: boolean;
-
-  @property({
-    type: 'number',
-    required: true,
-    default: 0,
-    jsonSchema: {
-      type: 'number',
-      unsigned: true,
-    },
-  })
-  order: number;
+  notes?: string;
 
   @property({
     type: 'date',
@@ -111,20 +104,15 @@ export class CategoryItem extends Entity {
   })
   createdAt: string;
 
-  @property({
-    type: 'date',
-    default: () => new Date(),
-  })
-  updatedAt: string;
-
-  constructor(data?: Partial<CategoryItem>) {
+  constructor(data?: Partial<OrderItem>) {
     super(data);
   }
 }
 
-export interface CategoryItemRelations {
-  category?: Category;
+export interface OrderItemRelations {
+  order?: Order;
+  categoryItem?: CategoryItem;
   merchant?: Merchant;
 }
 
-export type CategoryItemWithRelations = CategoryItem & CategoryItemRelations;
+export type OrderItemWithRelations = OrderItem & OrderItemRelations;
