@@ -29,7 +29,7 @@ export class MySequence implements SequenceHandler {
       const {request, response} = context;
 
       // Aggiungi gli header CORS alla risposta
-      response.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
+      response.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173, https://www.servertesting.it:443');
       response.setHeader('Access-Control-Allow-Credentials', 'true');
       response.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
       response.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
