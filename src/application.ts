@@ -26,6 +26,7 @@ export class BackendApplication extends BootMixin(
     dotenv.config();
 
     // Configure CORS
+    /*
     this.options.rest = {
       ...this.options.rest,
       cors: {
@@ -42,6 +43,7 @@ export class BackendApplication extends BootMixin(
         'trust proxy': false,
       },
     };
+    */
 
     // Configure Cognito
     this.bind('cognito.region').to(process.env.COGNITO_REGION || '');
