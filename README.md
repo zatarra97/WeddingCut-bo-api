@@ -31,7 +31,7 @@ Crea un file `.env` nella root del progetto:
 ```env
 # Server
 PORT=3005
-HOST=127.0.0.1
+HOST=127.0.0.1  # Per sviluppo locale. Su Render usa 0.0.0.0 o lascia vuoto (default)
 
 # Database MySQL
 MYSQL_HOST=localhost
@@ -61,6 +61,33 @@ mysql -u root -p < database/create_aseat_database.sql
 ```
 
 Oppure da MySQL Workbench: esegui `database/create_aseat_database.sql`
+
+## 🚀 Deployment su Render
+
+### Configurazione Environment Variables su Render:
+
+```env
+NODE_ENV=production
+HOST=0.0.0.0
+PORT=10000
+
+MYSQL_HOST=your_host
+MYSQL_PORT=3306
+MYSQL_USER=your_user
+MYSQL_PASSWORD=your_password
+MYSQL_DATABASE=aspeat
+
+TELEGRAM_BOT_TOKEN=your_token
+TELEGRAM_CHAT_ID=your_chat_id
+
+IKEA_ENDPOINT_URL=https://web-api.ikea.com/circular/circular-asis/offers/grouped/search
+IKEA_LANGUAGE_CODE=it
+IKEA_PAGE_SIZE=32
+IKEA_STORE_IDS=356
+IKEA_SEARCH_INTERVAL_MINUTES=5
+```
+
+**Importante**: Non impostare `HOST=127.0.0.1` su Render. Usa `0.0.0.0` o lascia vuoto (il default è già corretto).
 
 ## ▶️ Avvio
 

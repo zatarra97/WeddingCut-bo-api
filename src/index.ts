@@ -1,10 +1,10 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { ApplicationConfig, BackendApplication } from './application';
-import { IkeaApiService } from './services/ikea-api.service';
+import {ApplicationConfig, BackendApplication} from './application';
+import {IkeaApiService} from './services/ikea-api.service';
 
 // Carica le variabili d'ambiente dal file .env
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({path: path.resolve(__dirname, '../.env')});
 
 export * from './application';
 
@@ -32,7 +32,8 @@ if (require.main === module) {
   const config = {
     rest: {
       port: +(process.env.PORT ?? 3005),
-      host: process.env.HOST || '127.0.0.1',
+      // Use 0.0.0.0 to allow external connections (required for Render, Heroku, etc.)
+      host: process.env.HOST || '0.0.0.0',
       // The `gracePeriodForClose` provides a graceful close for http/https
       // servers with keep-alive clients. The default value is `Infinity`
       // (don't force-close). If you want to immediately destroy all sockets
