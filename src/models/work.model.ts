@@ -15,11 +15,15 @@ export class Work extends Entity {
 
   public static readonly COLUMNS = {
     ID: 'id',
+    SLUG: 'slug',
+    VIDEO_URL: 'videoUrl',
     TITOLO: 'titolo',
     TAG: 'tag',
     CAST: 'cast',
+    PREVIEW_URL: 'previewUrl',
     GALLERY: 'gallery',
     STATUS: 'status',
+    ORDER: 'order',
     CREATED_AT: 'createdAt',
     UPDATED_AT: 'updatedAt',
   };
@@ -33,41 +37,68 @@ export class Work extends Entity {
 
   @property({
     type: 'string',
-    required: false,
+    required: true,
     jsonSchema: {
-      maxLength: 200,
-      nullable: true,
+      maxLength: 255,
     },
   })
-  titolo?: string;
+  slug: string;
 
   @property({
     type: 'string',
-    required: false,
+    required: true,
+    jsonSchema: {
+      maxLength: 200,
+    },
+  })
+  videoUrl: string;
+
+  @property({
+    type: 'string',
+    required: true,
     jsonSchema: {
       maxLength: 200,
       nullable: true,
     },
   })
-  tag?: string;
+  titolo: string;
+
+  @property({
+    type: 'string',
+    required: true,
+    jsonSchema: {
+      maxLength: 200,
+      nullable: true,
+    },
+  })
+  tag: string;
 
   @property({
     type: 'object',
-    required: false,
+    required: true,
     jsonSchema: {
       nullable: true,
     },
   })
-  cast?: object;
+  cast: object;
+
+  @property({
+    type: 'string',
+    required: true,
+    jsonSchema: {
+      maxLength: 300,
+    },
+  })
+  previewUrl: string;
 
   @property({
     type: 'object',
-    required: false,
+    required: true,
     jsonSchema: {
       nullable: true,
     },
   })
-  gallery?: object;
+  gallery: object;
 
   @property({
     type: 'string',
@@ -78,21 +109,32 @@ export class Work extends Entity {
       nullable: true,
     },
   })
-  status?: 'draft' | 'published';
+  status: 'draft' | 'published';
+
+  @property({
+    type: 'number',
+    required: false,
+    jsonSchema: {
+      type: 'integer',
+      minimum: 0,
+      maximum: 999,
+    },
+  })
+  order?: number;
 
   @property({
     type: 'date',
-    required: true,
+    required: false,
     default: () => new Date(),
   })
-  createdAt: Date;
+  createdAt?: Date;
 
   @property({
     type: 'date',
-    required: true,
+    required: false,
     default: () => new Date(),
   })
-  updatedAt: Date;
+  updatedAt?: Date;
 
   // Indexer property to allow additional data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

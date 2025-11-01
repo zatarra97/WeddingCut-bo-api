@@ -6,11 +6,15 @@ USE `giopie`;
 
 CREATE TABLE IF NOT EXISTS works (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `slug` VARCHAR(255) NOT NULL,
+  `videoUrl` VARCHAR(200) NOT NULL,
   `titolo` VARCHAR(200) DEFAULT NULL,
   `tag` VARCHAR(200) DEFAULT NULL,
   `cast` json DEFAULT NULL,
+  `previewUrl` VARCHAR(300) NOT NULL,
   `gallery` JSON DEFAULT NULL,
   `status` ENUM('draft', 'published') DEFAULT 'draft',
+  `order` SMALLINT UNSIGNED NOT NULL,
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updatedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)

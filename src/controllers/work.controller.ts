@@ -7,13 +7,14 @@ import {
   Where,
 } from '@loopback/repository';
 import {
-  post,
-  param,
+  del,
   get,
   getModelSchemaRef,
+  HttpErrors,
+  param,
   patch,
+  post,
   put,
-  del,
   requestBody,
   response,
 } from '@loopback/rest';
@@ -23,8 +24,8 @@ import {WorkRepository} from '../repositories';
 export class WorkController {
   constructor(
     @repository(WorkRepository)
-    public workRepository : WorkRepository,
-  ) {}
+    public workRepository: WorkRepository,
+  ) { }
 
   @post('/works')
   @response(200, {
@@ -146,5 +147,65 @@ export class WorkController {
   })
   async deleteById(@param.path.number('id') id: number): Promise<void> {
     await this.workRepository.deleteById(id);
+  }
+
+  @get('/works/public')
+  @response(200, {
+    description: 'Array of published Work model instances',
+    content: {
+      'application/json': {
+        schema: {
+          type: 'array',
+          items: getModelSchemaRef(Work, {
+            exclude: ['id', 'createdAt', 'updatedAt'],
+          }),
+        },
+      },
+    },
+  })
+  async findPublic(
+    @param.filter(Work, {exclude: ['id', 'createdAt', 'updatedAt']}) filter?: Filter<Work>,
+  ): Promise<Omit<Work, 'id' | 'createdAt' | 'updatedAt'>[]> {
+    const where = {
+      status: 'published' as const,
+      ...filter?.where,
+    };
+    const works = await this.workRepository.find({
+      ...filter,
+      where,
+      fields: {
+        id: false,
+        createdAt: false,
+        updatedAt: false,
+      } as any,
+    });
+    return works.map(work => {
+      const {id, createdAt, updatedAt, ...rest} = work;
+      return rest;
+    });
+  }
+
+  @get('/works/public/{slug}')
+  @response(200, {
+    description: 'Work model instance by slug',
+    content: {
+      'application/json': {
+        schema: getModelSchemaRef(Work, {
+          exclude: ['id', 'createdAt', 'updatedAt'],
+        }),
+      },
+    },
+  })
+  async findBySlug(
+    @param.path.string('slug') slug: string,
+  ): Promise<Omit<Work, 'id' | 'createdAt' | 'updatedAt'>> {
+    const work = await this.workRepository.findOne({
+      where: {slug, status: 'published'},
+    });
+    if (!work) {
+      throw new HttpErrors.NotFound('Work not found');
+    }
+    const {id, createdAt, updatedAt, ...rest} = work;
+    return rest;
   }
 }
