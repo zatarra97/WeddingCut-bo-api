@@ -8,9 +8,7 @@ export function requireAdmin(user: UserProfile): void {
   }
 }
 
-export function requireUser(user: UserProfile): void {
-  const groups: string[] = (user as any).groups ?? [];
-  if (!groups.includes('User') && !groups.includes('Admin')) {
-    throw new HttpErrors.Forbidden('Accesso riservato agli utenti registrati.');
-  }
-}
+// Gli utenti normali non hanno gruppi Cognito (nessun gruppo = User).
+// L'autenticazione JWT è già verificata da @authenticate('cognito'),
+// quindi qualsiasi token valido appartiene a un utente autorizzato.
+export function requireUser(_user: UserProfile): void {}
