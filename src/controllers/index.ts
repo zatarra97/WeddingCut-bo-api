@@ -5,5 +5,6 @@ export * from './dashboard.controller';
 export * from './service.controller';
 export * from './user-conversation.controller';
 export * from './user-order.controller';
+export * from './ping.controller';
 export * from './user-service.controller';
 
